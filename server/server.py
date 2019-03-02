@@ -20,6 +20,7 @@ def catch_all(path):
             currently_active[path] = {}
             currently_active[path]['P1'] = {}
             currently_active[path]['P1']['addr'] = request.remote_addr
+            return "wait", 200
         else:
             currently_active[path]['P2'] = {}
             currently_active[path]['P2']['addr'] = request.remote_addr
@@ -29,6 +30,7 @@ def catch_all(path):
 
 
     return "yeetsify " + str(path), 200
+
 
 
 if __name__ == '__main__':
