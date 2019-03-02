@@ -11,6 +11,10 @@ from websockets.exceptions import ConnectionClosed
 def make_message(game_id, type, content):
     return json.dumps({'game_id': game_id, 'type': type, 'content': content})
 
+def get_number(path, socket):
+    lis = currently_active[path]['players']
+    return lis.index(socket) + 1
+
 
 currently_active = {}
 
@@ -56,11 +60,11 @@ async def main(websocket, path):
                     random_int = random.randint(0, len(currently_active[path]['players'])-1)
                     for socket in currently_active[path]['players']:
                         await socket.send(make_message(path, "started", "start_ye_game"))
-                    await currently_active[path]['players'][random_int].send(make_message(path,"Choose a Question", "QUESTIONS HERE"))
+                    await currently_active[path]['players'][random_int].send(make_message(path,"q_pick", ["Question1", "Question2", "Question3"]))
                     currently_active[path]["started"] = True
             elif type == "quit":
                 for socket in currently_active[path]['players']:
-                    await socket.send(make_message(path, "Quit", "End"))
+                    await socket.send(make_message(path, "quit", "End"))
                 # Do Quit Activities
                 if type in currently_active:
                     del currently_active[type]
@@ -68,12 +72,12 @@ async def main(websocket, path):
                 if currently_active[path]['started'] == True :
                     for socket in currently_active[path]['players']:
                         if socket != websocket:
-                            await socket.send(make_message(path, "question", data['content']))
+                            await socket.send(make_message(path, "a_question", data['content']))
                     currently_active[path]['answers'].append({})
             elif type == "answer":
                 if currently_active[path]['started'] == True :
                 # finish_round = False
-                    number = get_number(websocket)
+                    number = get_number(path, websocket)
                     currently_active[path]['answers'][currently_active[path]['round']][number] = data['content']
 
                     if len(currently_active[path]['answers'][currently_active[path]['round']]) == len(currently_active[path]['players']):
@@ -84,7 +88,7 @@ async def main(websocket, path):
                         random_int = random.randonInt(0, len(currently_active[path]['players']))
                         for socket in currently_active[path]['players']:
                             await socket.send(make_message(path, "start", "start_ye_game"))
-                        await currently_active[path]['players'][random_int].send(make_message(path,"Choose a Question", "QUESTIONS HERE"))
+                        await currently_active[path]['players'][random_int].send(make_message(path,"q_pick", "QUESTIONS HERE"))
 
             elif type == "echo":
                 await websocket.send(json.dumps(data))
