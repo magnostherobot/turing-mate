@@ -125,7 +125,7 @@ init { startTime } =
             , useSimulator = False
             , game = "1234"
             , question = ""
-            , userID = startTime
+            , userID = "waiting to join a game"
             , answers = []
             , selectedQuestion = ""
             , questions = []
@@ -483,5 +483,6 @@ view model = case model.overlay of
                     ]
                 ]
             , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
+            , Grid.row [] [ Grid.col [] [ text ("you are " ++ model.userID) ] ]
             ])
     x -> text x

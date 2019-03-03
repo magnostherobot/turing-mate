@@ -217,10 +217,11 @@ async def guess(player, game, data):
     if data['content'] == game.robot_man.id:
         # Correct guess
         for p in game.players:
-            await send_msg(p, game, "game_won", player.id)
+            await send_msg(p, game, "game_won", player.id + " wins!")
+            game.status = 'lobby'
     else:
         await send_msg(player, game, "game_over", "You're Out")
-        if self.previous_qmaster == player:
+        if game.previous_qmaster == player:
             await game.kick_player(player)
             await game.req_question()
         else:
