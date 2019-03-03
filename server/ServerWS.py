@@ -15,18 +15,23 @@ def get_number(path, socket):
     lis = currently_active[path]['players']
     return lis.index(socket) + 1
 
+webs = {}
 
 currently_active = {}
 
-async def main(websocket, path):
+async def main(websocket, pth):
     while True:
-        print("-------YEEET-------")
+        print("-------YEEET-------" + pth)
 
         try:
             dat = await websocket.recv()
-        except (ConnectionClosed):
+        except ConnectionClosed:
+            if pth in webs:
+                currently_active[webs[pth]]['players'].remove(websocket)
+            if len(currently_active[webs[pth]]['players'] == 0):
+                del currently_active[webs[pth]]
+                del webs[pth]
             print("Connection is Closed")
-            data = None
             break
 
 
@@ -40,7 +45,7 @@ async def main(websocket, path):
 
             if type == "register":
                 # print("hello")
-                if type not in currently_active:
+                if path not in currently_active:
                     currently_active[path] = {}
                     currently_active[path]['round'] = 1
                     currently_active[path]['answers'] = []
@@ -53,7 +58,9 @@ async def main(websocket, path):
                 temp = data
                 temp["type"] = "registered"
                 await websocket.send(json.dumps(temp))
+                webs[pth] = path
                 print("Replied To Register Message")
+
             elif type == 'start':
                 print("Received Start Message, Starting game for " +  path)
                 if "started" not in currently_active[path]:
@@ -62,18 +69,22 @@ async def main(websocket, path):
                         await socket.send(make_message(path, "started", "start_ye_game"))
                     await currently_active[path]['players'][random_int].send(make_message(path,"q_pick", ["Question1", "Question2", "Question3"]))
                     currently_active[path]["started"] = True
+
             elif type == "quit":
                 for socket in currently_active[path]['players']:
                     await socket.send(make_message(path, "quit", "End"))
                 # Do Quit Activities
                 if type in currently_active:
                     del currently_active[type]
-            elif type == "propogate_question":
+
+            elif type == "p_question":
+                print("Propogating question")
                 if currently_active[path]['started'] == True :
                     for socket in currently_active[path]['players']:
                         if socket != websocket:
                             await socket.send(make_message(path, "a_question", data['content']))
                     currently_active[path]['answers'].append({})
+
             elif type == "answer":
                 if currently_active[path]['started'] == True :
                 # finish_round = False
