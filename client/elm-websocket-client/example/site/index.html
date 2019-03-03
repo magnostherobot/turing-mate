@@ -11,7 +11,7 @@
 
 <html>
   <head>
-    <title>WebSocketClient Example</title>
+    <title>yo</title>
     <!-- Compile your Elm application into index.js. E.g.:
       -- elm make Main.elm --output site/index.js
       -->
@@ -22,9 +22,12 @@
     <div id='elm'></div>
     <script type='text/javascript'>
 
+let wip = window.location.href.split('/');
+
 // Initialize your flags here, if you have them.
 var flags = {
-    startTime: Date.now().toString()
+    startTime: Date.now().toString(),
+    ipurl: "ws://" + window.location.hostname + ":8765"
 };
 
 // Initialize the name of your main module here.

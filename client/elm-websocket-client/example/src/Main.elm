@@ -104,7 +104,7 @@ type alias Model =
     , selectedQuestion : String
     }
 
-main : Program { startTime : String } Model Msg
+main : Program { startTime : String, ipurl : String } Model Msg
 main =
     Browser.element
         { init = init
@@ -113,13 +113,13 @@ main =
         , subscriptions = subscriptions
         }
 
-init : { startTime : String } -> ( Model, Cmd Msg )
-init { startTime } =
+init : { startTime : String, ipurl : String } -> ( Model, Cmd Msg )
+init { startTime, ipurl } =
     let
         model = 
             { send = "{\"type\":\"register\", \"game_id\":3, \"content\":\"\"}"
             , log = []
-            , url = defaultUrl
+            , url = ipurl
             , players = []
             , overlay = ""
             , useSimulator = False
@@ -136,10 +136,10 @@ init { startTime } =
             , error = Nothing
             , text = ""
             }
-        debug = Debug.log "url" (defaultUrl ++"/"++ model.game)
+        debug = Debug.log "url" (ipurl ++"/"++ model.game)
     in
-        { model | url = defaultUrl ++"/"++ model.game } |> withCmd
-            (WebSocket.makeOpenWithKey model.key (defaultUrl ++"/"++ model.game) |> send model)
+        { model | url = ipurl ++"/"++ model.game } |> withCmd
+            (WebSocket.makeOpenWithKey model.key (ipurl ++"/"++ model.game) |> send model)
 
 -- UPDATE
 
@@ -468,12 +468,13 @@ renderQuestion model = case model.gameState of
 view : Model -> Html Msg
 view model = case model.overlay of
     "" ->
-        Grid.container [] (
+        Grid.container [ class "bg-light border" ] (
             [ CDN.stylesheet ]
             ++ renderNames model
             ++ renderAnswers model
             ++ renderQuestion model ++
-            [ Grid.row []
+            [ Grid.row [] [ Grid.col [] [ h1 [ class "text-center" ] [ text "TuringMate" ] ] ]
+            , Grid.row []
                 [ Grid.col []
                     [ div [ class "input-group" ]
                         [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
