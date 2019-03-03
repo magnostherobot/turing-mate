@@ -34,6 +34,26 @@ class Player:
 
     async def receive(self):
         try:
+    def __init__(self, game, sock):
+        self.sock = sock
+        self.id = ''
+        self.game = game
+
+    def kick(self):
+        self.sock.close()
+
+    async def send(self, msg):
+        await self.sock.send(msg)
+
+    async def receive(self):
+        try:
+            data = await self.sock.recv()
+            print(self.game.id + "/" + self.id + " > " + data)
+            return json.loads(data)
+        except ConnectionClosed:
+            if not self.game is None:
+                await self.game.kick_player(self)
+            return None
             data = await self.sock.recv()
             print(self.game.id + "/" + self.id + " > " + data)
             return json.loads(data)
@@ -50,22 +70,12 @@ class RobotPlayer:
 
     def kick(self):
         return
-        # self.sock.close()
 
     async def send(self, msg):
         return
-        # await self.sock.send(msg)
 
     async def receive(self):
         return
-        # try:
-        #     data = await self.sock.recv()
-        #     print(self.game.id + "/" + self.id + " > " + data)
-        #     return json.loads(data)
-        # except ConnectionClosed:
-        #     if not self.game is None:
-        #         await self.game.kick_player(self)
-        #     return None
 
 class Game:
     def __init__(self, id):
@@ -115,11 +125,15 @@ class Game:
 
     async def kick_player(self, player):
         for p in self.players:
-            if p == player or p.id == player or p.sock == player:
+            if p.sock is None:
+                self.players.remove(p)
+                self.return_name(p.id)
+            elif p == player or p.id == player or p.sock == player:
                 await p.kick()
                 self.players.remove(p)
                 self.return_name(p.id)
                 break
+
 
     async def ask_question(self, qmaster, question):
         if self.state == 'get_question':
