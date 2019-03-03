@@ -19,18 +19,19 @@ webs = {}
 # Everything indexed by game id
 currently_active = {}
 
-async def main(websocket, pth):
+async def main(websocket, user_id):
     while True:
-        print("-------YEEET-------" + str(pth))
+        print("-------YEEET-------  " + str(user_id))
 
         try:
             dat = await websocket.recv()
         except ConnectionClosed:
-            if pth in webs:
-                currently_active[webs[pth]]['players'].remove(websocket)
-            if len(currently_active[webs[pth]]['players'] == 0):
-                del currently_active[webs[pth]]
-                del webs[pth]
+            if user_id in webs:
+                print(currently_active[webs[user_id]])
+                # currently_active[webs[user_id]]['players'].remove(websocket)
+                if len(currently_active[webs[user_id]]['players'] == 0):
+                    del currently_active[webs[user_id]]
+                    del webs[user_id]
             print("Connection is Closed")
             break
 
@@ -59,7 +60,7 @@ async def main(websocket, pth):
                 temp = data
                 temp["type"] = "registered"
                 await websocket.send(json.dumps(temp))
-                webs[pth] = path
+                webs[user_id] = path
                 print("Replied To Register Message")
 
             elif type == 'start':
@@ -95,12 +96,12 @@ async def main(websocket, pth):
                     # Funky stuff to add the answer to the right place for that round
                     currently_active[path]['answers'][currently_active[path]['round']][number] = data['content']
 
-                    if len(currently_active[path]['answers'][currently_active[path]['round']]) == len(currently_active[path]['players']):
+                    if len(currently_active[path]['answers'][currently_active[path]['round']]) == len(currently_active[path]['players'])-1:
                         for socket in currently_active[path]['players']:
                             if socket != websocket:
-                                await socket.send(make_message(path, "answer", currently_active[path]['content']))
+                                await socket.send(make_message(path, "answer", currently_active[path]['answers'][currently_active[path]['round']]))
                         currently_active[path]['round'] += 1
-                        random_int = random.randonInt(0, len(currently_active[path]['players']))
+                        random_int = random.randint(0, len(currently_active[path]['players']))
                         for socket in currently_active[path]['players']:
                             await socket.send(make_message(path, "start", "start_ye_game"))
                         await currently_active[path]['players'][random_int].send(make_message(path,"q_pick", "QUESTIONS HERE"))
