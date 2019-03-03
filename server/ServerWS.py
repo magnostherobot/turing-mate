@@ -18,7 +18,7 @@ infile.close()
 def get_question_selection():
     ret = []
     for i in range(0,3):
-        ret.append(random.choice(list(reddit_file.keys().replace('"', '').replace('\\', ''))))
+        ret.append(random.choice(list(reddit_file.keys())).replace('"', '').replace('\\', ''))
     return ret
 
 class Player:
