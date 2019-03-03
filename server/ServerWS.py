@@ -8,8 +8,17 @@ import json
 import random
 from websockets.exceptions import ConnectionClosed
 
+import pickle
+
+infile = open("../save_file.pkl",'rb')
+reddit_file = pickle.load(infile)
+infile.close()
+
 def get_question_selection():
-    return [ 'Q1', 'Q2', 'Q3' ]
+    ret = []
+    for i in range(0,3):
+        ret.append(random.choice(new_dict.keys()))
+    return ret
 
 class Player:
     def __init__(self, game, sock):
@@ -33,6 +42,31 @@ class Player:
                 await self.game.kick_player(self)
             return None
 
+class RobotPlayer:
+    def __init__(self, game, sock):
+        self.sock = ""
+        self.id = ''
+        self.game = game
+
+    def kick(self):
+        return
+        # self.sock.close()
+
+    async def send(self, msg):
+        return
+        # await self.sock.send(msg)
+
+    async def receive(self):
+        return
+        # try:
+        #     data = await self.sock.recv()
+        #     print(self.game.id + "/" + self.id + " > " + data)
+        #     return json.loads(data)
+        # except ConnectionClosed:
+        #     if not self.game is None:
+        #         await self.game.kick_player(self)
+        #     return None
+
 class Game:
     def __init__(self, id):
         self.id = id
@@ -40,6 +74,9 @@ class Game:
         self.state = 'lobby'
         self.answers = {}
         self.names = [ '1', '2', '3', 'b', 'c' ]
+        self.robot_man = RobotPlayer("", "")
+        self.players.append(self.robot_man)
+        self.robot_man.id = self.get_name()
 
     async def req_question(self):
         qmaster = random.choice(self.players)
@@ -68,7 +105,6 @@ class Game:
     def add_player(self, player):
         if self.state == 'lobby':
             self.players.append(player)
-            player.game = self
             player.id = self.get_name()
             return True
         else:
@@ -87,6 +123,7 @@ class Game:
             self.state = 'ask_question'
             self.answers = { qmaster.id : question }
             await send_all_except(qmaster, self, 'a_question', question)
+            self.answers[self.robot_id] = reddit_file[question][0]
             return True
         else:
             return False
