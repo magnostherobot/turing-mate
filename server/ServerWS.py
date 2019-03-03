@@ -16,7 +16,7 @@ def get_number(path, socket):
     return lis.index(socket) + 1
 
 webs = {}
-
+# Everything indexed by game id
 currently_active = {}
 
 async def main(websocket, pth):
@@ -46,8 +46,9 @@ async def main(websocket, pth):
             if type == "register":
                 # print("hello")
                 if path not in currently_active:
+                    # stuff set up here
                     currently_active[path] = {}
-                    currently_active[path]['round'] = 1
+                    currently_active[path]['round'] = 0
                     currently_active[path]['answers'] = []
                     currently_active[path]['players'] = []
                     currently_active[path]['players'].append(websocket)
@@ -82,10 +83,12 @@ async def main(websocket, pth):
                 if currently_active[path]['started'] == True :
                     for socket in currently_active[path]['players']:
                         if socket != websocket:
-                            await socket.send(make_message(path, "a_question", data['content']))
+                            await socket.send(make_message(path, "a_question", data['content']))#
+                    # Add a dictionary for the answers
                     currently_active[path]['answers'].append({})
 
             elif type == "answer":
+                # This is when it receives all of the answers
                 if currently_active[path]['started'] == True :
                 # finish_round = False
                     number = get_number(path, websocket)
