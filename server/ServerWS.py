@@ -216,8 +216,7 @@ async def guess(player, game, data):
     if data['content'] == game.robot_man.id:
         # Correct guess
         for p in game.players:
-            await send_msg(p, game, "game_won", p.id)
-        # end the game
+            await send_msg(p, game, "game_won", player.id)
     else:
         await send_msg(player, game, "game_over", "You're Out")
         await game.kick_player(player)

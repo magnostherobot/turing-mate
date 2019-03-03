@@ -10,7 +10,7 @@ import Cmd.Extra exposing (addCmd, addCmds, withCmd, withCmds, withNoCmd)
 import Dict exposing (Dict)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Html exposing (label, fieldset, Html, a, button, div, h1, input, p, span, text)
+import Html exposing (b, label, fieldset, Html, a, button, div, h1, input, p, span, text)
 import Json.Decode exposing (at, succeed, list, field, Decoder, string, int, decodeString)
 import Json.Encode exposing (Value)
 import PortFunnels exposing (FunnelDict, Handler(..), State)
@@ -87,6 +87,7 @@ type alias Model =
     { send : String
     , overlay : String
     , players: List String
+    , question: String
     , log : List String
     , url : String
     , useSimulator : Bool
@@ -123,6 +124,7 @@ init { startTime } =
             , overlay = ""
             , useSimulator = False
             , game = "1234"
+            , question = ""
             , userID = startTime
             , answers = []
             , selectedQuestion = ""
@@ -155,6 +157,7 @@ type Msg
     | SendQuestion String
     | SendAnswer String
     | SelectQuestion String
+    | Guess String
 
 type ModelState
         = Registering
@@ -257,6 +260,7 @@ update msg model =
         SendQuestion q -> { model | gameState = WaitingForA, questions = [] } |> withCmd (sendMsg model "p_question" model.selectedQuestion)
         SendAnswer   a -> { model | gameState = WaitingForA, text = "" } |> withCmd (sendMsg model "answer" model.text)
         SelectQuestion q -> { model | selectedQuestion = q } |> withNoCmd
+        Guess g -> model |> withCmd (sendMsg model "guess" g)
 
 send : Model -> WebSocket.Message -> Cmd Msg
 send model message =
@@ -290,6 +294,11 @@ getMePls : String -> List String
 getMePls str = case decodeString (field "content" (list string)) str of
     Ok xs -> xs
     Err _ -> let debug = Debug.log "err_cause" str in []
+
+getMeQn : String -> String
+getMeQn str = case decodeString (field "content" string) str of
+    Ok x -> x
+    Err _ -> let debug = Debug.log "err_cause" str in "ERR"
 
 getMeQns : String -> List String
 getMeQns str = case decodeString (field "content" (list string)) str of
@@ -336,9 +345,9 @@ socketHandler response state mdl =
                     Ok "started"    -> ({ model | players = getMePls message, userID = getMeUID message }, WaitingForQ)
                     Ok "q_pick"     -> ({ model | questions = getMeQns message }, WriteQ)
                     Ok "answer"     -> ({ model | answers = (getMeAns model message)::model.answers }, WaitingForQ)
-                    Ok "a_question" -> (model, WriteA)
                     Ok "game_won"   -> ({ model | overlay = getMeMsg message }, Finished)
                     Ok "game_over"  -> ({ model | overlay = getMeMsg message }, Finished)
+                    Ok "a_question" -> ({ model | question = getMeQn message }, WriteA)
                     Ok  x -> let d = Debug.log "hmm" x in (model, model.gameState)
                     Err _ -> Debug.todo "eee"
             in { newModel | gameState = newState } |> withNoCmd
@@ -432,6 +441,16 @@ renderRadioButtons model =
         buttons = List.map rdoBtn model.questions
     in [ fieldset [] buttons ]
 
+renderNames : Model -> List (Html Msg)
+renderNames model =
+    let
+        name x = Grid.col [] [ button [ class "btn btn-default", type_ "button", onClick (Guess x) ] [ text x ] ]
+    in
+        case model.gameState of
+            Registering -> []
+            Registered  -> []
+            _           -> [ Grid.row [] (List.map name model.players) ]
+
 renderAnswers : Model -> List (Html Msg)
 renderAnswers model =
     let
@@ -439,9 +458,15 @@ renderAnswers model =
         rows x = Grid.row [] (List.map item x)
         debug_ = Debug.log "rows" (model.players)
         debug  = Debug.log "rows" (model.answers)
-    in List.map rows (model.players::model.answers)
+    in List.map rows model.answers
+
+renderQuestion : Model -> List (Html Msg)
+renderQuestion model = case model.gameState of
+    WriteA -> [ Grid.row [] [ Grid.col [] [ text model.question ] ] ]
+    _      -> []
 
 view : Model -> Html Msg
+<<<<<<< Updated upstream
 view model = case model.overlay of
     "" ->
         Grid.container [] (
@@ -459,6 +484,20 @@ view model = case model.overlay of
                         , span [ class "input-group-btn" ]
                             [ renderButton model ]
                         ]
+=======
+view model =
+    Grid.container [] (
+        [ CDN.stylesheet ]
+        ++ renderNames model
+        ++ renderAnswers model
+        ++ renderQuestion model ++
+        [ Grid.row []
+            [ Grid.col []
+                [ div [ class "input-group" ]
+                    [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
+                    , span [ class "input-group-btn" ]
+                        [ renderButton model ]
+>>>>>>> Stashed changes
                     ]
                 ]
             , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
