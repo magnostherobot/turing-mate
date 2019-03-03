@@ -224,6 +224,17 @@ async def receive_answer(player, game, answer):
     if not await game.receive_answer(player, answer):
         await send_err(player, game, 'could not post answer')
 
+async def guess(player, game, data):
+    if data.content = game.robot_man.robot_id:
+        # Correct guess
+        for p in game.players:
+            await send_msg(p,game, "game_won", p.id)
+        # end the game
+        game.remove(game)
+    else:
+        await send_msg(player, "game_over", "You're Out")
+        await game.kick_player(player)
+
 async def user_connect(websocket, game_id):
     print(game_id + " +")
     game = games[game_id]
@@ -255,6 +266,9 @@ async def user_connect(websocket, game_id):
 
         elif type == "echo":
             await send_msg(player, game, 'echo', data)
+
+        elif type == "guess"
+            await guess(player, game, data)
 
         else:
             await send_err(player, game, 'unrecognised message type: ' + type)
