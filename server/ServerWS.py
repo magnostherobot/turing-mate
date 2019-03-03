@@ -81,6 +81,7 @@ class Game:
         if self.robot_man in lesser_list:
             lesser_list.remove(self.robot_man)
         qmaster = random.choice(lesser_list)
+        self.previous_qmaster = qmaster
         questions = get_question_selection()
         await send_msg(qmaster, self, 'q_pick', questions)
 
@@ -219,7 +220,11 @@ async def guess(player, game, data):
             await send_msg(p, game, "game_won", player.id)
     else:
         await send_msg(player, game, "game_over", "You're Out")
-        await game.kick_player(player)
+        if self.previous_qmaster == player:
+            await game.kick_player(player)
+            await game.req_question()
+        else:
+            await game.kick_player(player)
 
 async def user_connect(websocket, game_id):
     print(game_id + " +")

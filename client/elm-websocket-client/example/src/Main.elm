@@ -466,38 +466,20 @@ renderQuestion model = case model.gameState of
     _      -> []
 
 view : Model -> Html Msg
-<<<<<<< Updated upstream
 view model = case model.overlay of
     "" ->
         Grid.container [] (
-            [ CDN.stylesheet ] ++ renderAnswers model ++
+            [ CDN.stylesheet ]
+            ++ renderNames model
+            ++ renderAnswers model
+            ++ renderQuestion model ++
             [ Grid.row []
-                [ Grid.col []
-                    [ text "TESTESTEST" ]
-                , Grid.col []
-                    [ text "TES2" ]
-                ]
-            , Grid.row []
                 [ Grid.col []
                     [ div [ class "input-group" ]
                         [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
                         , span [ class "input-group-btn" ]
                             [ renderButton model ]
                         ]
-=======
-view model =
-    Grid.container [] (
-        [ CDN.stylesheet ]
-        ++ renderNames model
-        ++ renderAnswers model
-        ++ renderQuestion model ++
-        [ Grid.row []
-            [ Grid.col []
-                [ div [ class "input-group" ]
-                    [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
-                    , span [ class "input-group-btn" ]
-                        [ renderButton model ]
->>>>>>> Stashed changes
                     ]
                 ]
             , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
