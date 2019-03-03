@@ -86,6 +86,7 @@ class Game:
     async def start(self):
         if self.state == 'lobby':
             self.state = 'get_question'
+            shuffle(self.players)
             content = map(lambda p: p.id, self.players)
             await send_all(self, 'started', list(content))
             # one random player chooses a question
@@ -217,7 +218,6 @@ async def guess(player, game, data):
         for p in game.players:
             await send_msg(p,game, "game_won", p.id)
         # end the game
-        games.remove(game)
     else:
         await send_msg(player, "game_over", "You're Out")
         await game.kick_player(player)
