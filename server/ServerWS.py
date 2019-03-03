@@ -12,10 +12,10 @@ def get_question_selection():
     return [ 'Q1', 'Q2', 'Q3' ]
 
 class Player:
-    def __init__(self, id, sock):
-        self.id = id
+    def __init__(self, game, sock):
         self.sock = sock
-        self.game = None
+        self.id = ''
+        self.game = game
 
     def kick(self):
         self.sock.close()
@@ -26,7 +26,7 @@ class Player:
     async def receive(self):
         try:
             data = await self.sock.recv()
-            print(self.id + " > " + data)
+            print(self.game.id + "/" + self.id + " > " + data)
             return json.loads(data)
         except ConnectionClosed:
             if not self.game is None:
@@ -39,6 +39,7 @@ class Game:
         self.players = []
         self.state = 'lobby'
         self.answers = {}
+        self.names = [ '1', '2', '3', 'b', 'c' ]
 
     async def req_question(self):
         qmaster = random.choice(self.players)
@@ -48,6 +49,7 @@ class Game:
     async def start(self):
         if self.state == 'lobby':
             self.state = 'get_question'
+            content = map(lambda p: p.id, self.players)
             await send_all(self, 'started')
             # one random player chooses a question
             await self.req_question()
@@ -55,10 +57,19 @@ class Game:
         else:
             return False
 
+    def get_name(self):
+        result = random.choice(self.names)
+        self.names.remove(result)
+        return result
+
+    def return_name(self, name):
+        self.names.append(name)
+
     def add_player(self, player):
         if self.state == 'lobby':
             self.players.append(player)
             player.game = self
+            player.id = self.get_name()
             return True
         else:
             return False
@@ -68,6 +79,7 @@ class Game:
             if p == player or p.id == player or p.sock == player:
                 await p.kick()
                 self.players.remove(p)
+                self.return_name(p.id)
                 break
 
     async def ask_question(self, qmaster, question):
@@ -88,7 +100,7 @@ class Game:
 
             if len(self.answers) == len(self.players):
                 self.state = 'get_question'
-                await send_all(self, 'a_question', self.answers)
+                await send_all(self, 'answer', self.answers)
                 await self.req_question()
 
             return True
@@ -104,8 +116,13 @@ class GameDB:
             self.contents[id] = Game(id)
         return self.contents[id]
 
-def make_message(game, type, content):
-    return json.dumps({'game_id': game.id, 'type': type, 'content': content})
+def make_message(player, game, type, content):
+    return json.dumps({
+        'user_id': player.id,
+        'game_id': game.id,
+        'type': type,
+        'content': content
+    })
 
 def get_number(path, socket):
     lis = currently_active[path]['players']
@@ -115,8 +132,8 @@ def get_number(path, socket):
 games = GameDB()
 
 async def send_msg(player, game, type, content=''):
-    out = make_message(game, type, content)
-    print(player.id + " < " + out)
+    out = make_message(player, game, type, content)
+    print(game.id + "/" + player.id + " < " + out)
     await player.send(out)
 
 async def send_err(player, game, content=''):
@@ -153,9 +170,10 @@ async def receive_answer(player, game, answer):
     if not await game.receive_answer(player, answer):
         await send_err(player, game, 'could not post answer')
 
-async def user_connect(websocket, user_id):
-    print(user_id + " +")
-    player = Player(user_id, websocket)
+async def user_connect(websocket, game_id):
+    print(game_id + " +")
+    game = games[game_id]
+    player = Player(game, websocket)
 
     while True:
         data = await player.receive()
@@ -164,8 +182,6 @@ async def user_connect(websocket, user_id):
             break
 
         type = data['type']
-        game_id = data['game_id']
-        game = games[game_id]
         content = data['content']
 
         if type == "register":
