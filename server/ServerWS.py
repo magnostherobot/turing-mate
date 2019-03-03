@@ -8,7 +8,7 @@ import json
 import random
 from random import shuffle
 from websockets.exceptions import ConnectionClosed
-
+from Usernames import *
 import pickle
 
 infile = open("../save_file.pkl",'rb')
@@ -71,7 +71,7 @@ class Game:
         self.players = []
         self.state = 'lobby'
         self.answers = {}
-        self.names = [ '1', '2', '3', 'b', 'c', 'tango', 'wowzer', 'bobbo', 'howdy' ]
+        self.names = usernames
         self.robot_man = RobotPlayer("", "")
         self.players.append(self.robot_man)
         self.robot_man.id = self.get_name()
