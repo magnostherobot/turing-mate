@@ -17,23 +17,10 @@ infile.close()
 def get_question_selection():
     ret = []
     for i in range(0,3):
-        ret.append(random.choice(list(reddit_file.keys())).replace('"', '').replace('\\',''))
+        ret.append(random.choice(list(reddit_file.keys())))
     return ret
 
 class Player:
-    def __init__(self, game, sock):
-        self.sock = sock
-        self.id = ''
-        self.game = game
-
-    def kick(self):
-        self.sock.close()
-
-    async def send(self, msg):
-        await self.sock.send(msg)
-
-    async def receive(self):
-        try:
     def __init__(self, game, sock):
         self.sock = sock
         self.id = ''
@@ -140,7 +127,7 @@ class Game:
             self.state = 'ask_question'
             self.answers = { qmaster.id : question }
             await send_all_except(qmaster, self, 'a_question', question)
-            self.answers[self.robot_man.id] = reddit_file[question][0].replace('"', '').replace('\\','')
+            self.answers[self.robot_man.id] = reddit_file[question][0]
             return True
         else:
             return False
