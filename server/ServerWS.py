@@ -212,7 +212,7 @@ async def receive_answer(player, game, answer):
         await send_err(player, game, 'could not post answer')
 
 async def guess(player, game, data):
-    if data.content == game.robot_man.robot_id:
+    if data['content'] == game.robot_man.robot_id:
         # Correct guess
         for p in game.players:
             await send_msg(p,game, "game_won", p.id)
