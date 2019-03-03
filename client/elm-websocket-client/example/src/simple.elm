@@ -14,7 +14,6 @@ import Html.Events exposing (onClick, onInput)
 import Json.Decode as JD
 import Json.Encode as JE exposing (Value)
 
-
 main =
     Browser.element
         { init = init
@@ -23,18 +22,13 @@ main =
         , subscriptions = subscriptions
         }
 
-
 port cmdPort : Value -> Cmd msg
-
 
 port subPort : (Value -> msg) -> Sub msg
 
-
 port parse : String -> Cmd msg
 
-
 port parseReturn : (Value -> msg) -> Sub msg
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -43,16 +37,16 @@ subscriptions model =
         , parseReturn Process
         ]
 
-
-
 -- MODEL
-
 
 type alias Model =
     { send : String
     , log : List String
+    , username : UserID
+    , game : GameID
+    , users : List String
+    , entries : List List String
     }
-
 
 openJson : String
 openJson =
@@ -61,14 +55,12 @@ openJson =
          {"module": "WebSocket", "tag": "open", "args": {"key": "foo", "url": "wss://echo.websocket.org"}}
         """
 
-
 sendJson : String
 sendJson =
     String.trim
         """
        {"module": "WebSocket", "tag": "send", "args": {"key": "foo", "message": "Hello, World!"}}
       """
-
 
 closeJson : String
 closeJson =
@@ -77,14 +69,12 @@ closeJson =
          {"module": "WebSocket", "tag": "close", "args": {"key": "foo", "reason": "Just because."}}
         """
 
-
 bytesQueuedJson : String
 bytesQueuedJson =
     String.trim
         """
          {"module": "WebSocket", "tag": "getBytesQueued", "args": {"key": "foo"}}
         """
-
 
 delayJson : String
 delayJson =
@@ -93,30 +83,28 @@ delayJson =
          {"module": "WebSocket", "tag": "delay", "args": {"millis": "500", "id": "23"}}
         """
 
-
 exampleJsons : List String
 exampleJsons =
     [ sendJson, bytesQueuedJson, closeJson, delayJson, openJson ]
-
 
 init : () -> ( Model, Cmd Msg )
 init flags =
     { send = openJson
     , log = []
+    , user = ""
+    , game = ""
+    , users = []
+    , entries = []
     }
         |> withNoCmd
 
-
-
 -- UPDATE
-
 
 type Msg
     = UpdateSend String
     | Send
     | Process Value
     | Receive Value
-
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -140,26 +128,20 @@ update msg model =
             in
             { model | log = log } |> withNoCmd
 
-
-
 -- VIEW
-
 
 b : String -> Html msg
 b string =
     Html.b [] [ text string ]
 
-
 br : Html msg
 br =
     Html.br [] []
-
 
 sendSample : String -> Html Msg
 sendSample sample =
     a [ onClick <| UpdateSend sample ]
         [ text sample ]
-
 
 view : Model -> Html Msg
 view model =

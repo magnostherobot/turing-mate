@@ -3,19 +3,23 @@ port module Main exposing (main)
 {-| WebSocketClient Example
 -}
 
+import Bootstrap.CDN as CDN
+import Bootstrap.Grid as Grid
 import Browser
 import Cmd.Extra exposing (addCmd, addCmds, withCmd, withCmds, withNoCmd)
 import Dict exposing (Dict)
-import Html exposing (Html, a, button, div, h1, input, p, span, text)
-import Html.Attributes exposing (checked, disabled, href, size, style, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Attributes exposing (..)
+import Html.Events exposing (..)
+import Html exposing (label, fieldset, Html, a, button, div, h1, input, p, span, text)
+import Json.Decode exposing (succeed, list, field, Decoder, string, int, decodeString)
 import Json.Encode exposing (Value)
-import PortFunnel.WebSocket as WebSocket exposing (Response(..))
 import PortFunnels exposing (FunnelDict, Handler(..), State)
-
+import PortFunnel.WebSocket as WebSocket exposing (Response(..))
+import Random
+import Random.Extra
 import String.Format
-
-
+import Task
+import Random.Char
 
 -- ADDITIONS
 type alias GameID = String
@@ -23,19 +27,14 @@ type alias MsgType = String
 type alias Content = String
 type alias JSONString = String
 
--- toJsonString : GameID -> MsgType -> Content -> JSONString
--- toJsonString gameID msgType content =
-toJsonString : List String -> JSONString
-toJsonString strs =
-    case strs of 
-        (gameID :: msgType :: content :: xs) ->
-            """{"game_id":"{{ GAME_ID }}", "type":"{{ MSG_TYPE }}", "content":"{{ CONTENT }}"}"""
-            |> String.Format.namedValue "GAME_ID" gameID
-            |> String.Format.namedValue "MSG_TYPE" msgType
-            |> String.Format.namedValue "CONTENT" content
-        _ -> "{}"
-
-
+toJsonString : GameID -> MsgType -> Content -> JSONString
+toJsonString gameid msgType content =
+    """
+    {"game_id":"{{ GAME_ID }}", "type":"{{ MSG_TYPE }}", "content":"{{ CONTENT }}"}
+    """
+    |> String.Format.namedValue "GAME_ID" gameid
+    |> String.Format.namedValue "MSG_TYPE" msgType
+    |> String.Format.namedValue "CONTENT" content
 
 {- This section contains boilerplate that you'll always need.
 
@@ -59,11 +58,9 @@ subscriptions : Model -> Sub Msg
 subscriptions =
     PortFunnels.subscriptions Process
 
-
 funnelDict : FunnelDict Model Msg
 funnelDict =
     PortFunnels.makeFunnelDict handlers getCmdPort
-
 
 {-| Get a possibly simulated output port.
 -}
@@ -93,13 +90,19 @@ type alias Model =
     , log : List String
     , url : String
     , useSimulator : Bool
+    , userID : String
     , wasLoaded : Bool
     , state : State
+    , gameState : ModelState
+    , questions : List String
+    , game : String
     , key : String
     , error : Maybe String
+    , text : String
+    , selectedQuestion : String
     }
 
-
+main : Program { startTime : String } Model Msg
 main =
     Browser.element
         { init = init
@@ -108,28 +111,34 @@ main =
         , subscriptions = subscriptions
         }
 
-
-init : () -> ( Model, Cmd Msg )
-init _ =
-    { send = "{\"type\":\"register\", \"game_id\":3, \"content\":\"\"}"
-    , log = []
-    , url = defaultUrl
-    , useSimulator = True
-    , wasLoaded = False
-    , state = PortFunnels.initialState
-    , key = "socket"
-    , error = Nothing
-    }
-        |> withNoCmd
-
-
+init : { startTime : String } -> ( Model, Cmd Msg )
+init { startTime } =
+    let
+        model = 
+            { send = "{\"type\":\"register\", \"game_id\":3, \"content\":\"\"}"
+            , log = []
+            , url = defaultUrl
+            , useSimulator = False
+            , game = "1234"
+            , userID = startTime
+            , selectedQuestion = ""
+            , questions = []
+            , gameState = Registering
+            , wasLoaded = False
+            , state = PortFunnels.initialState
+            , key = "socket"
+            , error = Nothing
+            , text = ""
+            }
+        debug = Debug.log "ip" (defaultUrl ++"/"++ model.userID)
+    in
+        { model | url = defaultUrl ++"/"++ model.userID } |> withCmd
+            (WebSocket.makeOpenWithKey model.key (defaultUrl ++"/"++ model.userID) |> send model)
 
 -- UPDATE
 
-
 type Msg
     = UpdateSend String
---    = UpdateSend GameID MsgType Content
     | UpdateUrl String
     | ToggleUseSimulator
     | ToggleAutoReopen
@@ -137,11 +146,29 @@ type Msg
     | Close
     | Send
     | Process Value
+    | TextChange String
+    | StartGame
+    | SendQuestion String
+    | SendAnswer String
+    | SelectQuestion String
 
+type ModelState
+        = Registering
+        | Registered
+        | Starting
+        | WaitingForQ
+        | WriteQ
+        | WaitingForA
+        | WriteA
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        TextChange str ->
+            let
+                boop = Debug.log "msg" str
+            in
+                { model | text = str } |> withNoCmd
         UpdateSend newsend ->
             { model | send = newsend } |> withNoCmd
 --        UpdateSend gameID msgType content ->
@@ -159,7 +186,7 @@ update msg model =
                     model.state
 
                 socketState =
-                    state.websocket
+                    model.state.websocket
 
                 autoReopen =
                     WebSocket.willAutoReopen model.key socketState
@@ -194,15 +221,13 @@ update msg model =
 
         Send ->
             let
-                jsonStr = String.split " " model.send |> toJsonString
+                jsonStr = toJsonString "geam" "echo" "test echo"
             in
                 { model
                     | log =
---                        ("Sending \"" ++ model.send ++ "\"") :: model.log
                         ("Sending \"" ++ jsonStr ++ "\"") :: model.log
                 }
                     |> withCmd
---                        (WebSocket.makeSend model.key model.send
                         (WebSocket.makeSend model.key jsonStr
                             |> send model
                         )
@@ -226,6 +251,11 @@ update msg model =
                 Ok res ->
                     res
 
+        StartGame ->
+            model |> withCmd (WebSocket.makeSend model.key (toJsonString model.game "start" "") |> send model)
+        SendQuestion q -> { model | gameState = WaitingForA, questions = [] } |> withCmd (sendMsg model "p_question" model.selectedQuestion)
+        SendAnswer   a -> { model | gameState = WaitingForA } |> withCmd (sendMsg model "answer" model.text)
+        SelectQuestion q -> { model | selectedQuestion = q } |> withNoCmd
 
 send : Model -> WebSocket.Message -> Cmd Msg
 send model message =
@@ -243,6 +273,22 @@ doIsLoaded model =
     else
         model
 
+typeDecoder : Decoder String
+typeDecoder =
+    field "type" string
+
+sendMsg : Model -> MsgType -> Content -> Cmd Msg
+sendMsg model mtype content =
+    let
+        out = toJsonString model.game mtype content
+        debug = Debug.log "out" out
+    in
+        WebSocket.makeSend model.key out |> send model
+
+getMeQns : String -> List String
+getMeQns str = case decodeString (field "content" (list string)) str of
+    Ok xs -> xs
+    Err _ -> let debug = Debug.log "err_cause" str in []
 
 socketHandler : Response -> State -> Model -> ( Model, Cmd Msg )
 socketHandler response state mdl =
@@ -256,12 +302,22 @@ socketHandler response state mdl =
     in
     case response of
         WebSocket.MessageReceivedResponse { message } ->
-            { model | log = ("Received \"" ++ message ++ "\"") :: model.log }
-                |> withNoCmd
+            let
+                msgType = decodeString (field "type" string) message
+                debug = Debug.log "in" message
+                (newModel, newState) = case msgType of
+                    Ok "registered" -> (model, Registered)
+                    Ok "started"    -> (model, WaitingForQ)
+                    Ok "q_pick"     -> ({ model | questions = getMeQns message }, WriteQ)
+                    Ok "answer"     -> (model, WaitingForQ)
+                    Ok "a_question" -> (model, WriteA)
+                    Ok  x -> let d = Debug.log "hmm" x in (model, model.gameState)
+                    Err _ -> Debug.todo "eee"
+            in { newModel | gameState = newState } |> withNoCmd
 
         WebSocket.ConnectedResponse r ->
             { model | log = ("Connected: " ++ r.description) :: model.log }
-                |> withNoCmd
+                |> withCmd (sendMsg model "register" "")
 
         WebSocket.ClosedResponse { code, wasClean, expected } ->
             { model
@@ -312,118 +368,61 @@ closedString code wasClean expected =
 
 -- VIEW
 
-
-b : String -> Html Msg
-b string =
-    Html.b [] [ text string ]
-
-
-br : Html msg
-br =
-    Html.br [] []
-
-
 docp : String -> Html Msg
 docp string =
     p [] [ text string ]
 
+renderButton : Model -> Html Msg
+renderButton model =
+    let mkBtn x =
+            case x of
+                (txt, Nothing) -> button
+                    [ disabled True, class "btn btn-primary", type_ "button" ]
+                    [ text txt ]
+                (txt, Just i) -> button
+                    [ disabled False, class "btn btn-primary", type_ "button"
+                    , onClick i ]
+                    [ text txt ]
+    in case model.gameState of
+        Registering -> mkBtn ("Registering...", Nothing)
+        Registered  -> mkBtn ("Start", Just StartGame)
+        Starting    -> mkBtn ("Starting...", Nothing)
+        WaitingForQ -> mkBtn ("Waiting for a Question...", Nothing)
+        WriteQ      -> mkBtn ("Post Question", Just (SendQuestion model.selectedQuestion))
+        WaitingForA -> mkBtn ("Waiting for answers...", Nothing)
+        WriteA      -> mkBtn ("Post Answer", Just (SendAnswer model.text))
+
+renderRadioButtons : Model -> List (Html Msg)
+renderRadioButtons model =
+    let
+        rdoBtn x = div [ class "radio" ]
+            [ label []
+                [ input [ type_ "radio", name "buttons", value x,
+                    on "change" (succeed <| SelectQuestion x) ] []
+                , text x
+                ]
+            ]
+        buttons = List.map rdoBtn model.questions
+    in [ fieldset [] buttons ]
 
 view : Model -> Html Msg
 view model =
-    let
-        isConnected =
-            WebSocket.isConnected model.key model.state.websocket
-    in
-    div
-        [ style "width" "40em"
-        , style "margin" "auto"
-        , style "margin-top" "1em"
-        , style "padding" "1em"
-        , style "border" "solid"
-        ]
-        [ h1 [] [ text "PortFunnel.WebSocket Example" ]
-        , p []
-            [ input
-                [ value model.send
-                , onInput UpdateSend
-                , size 50
-                ]
-                []
-            , text " "
-            , button
-                [ onClick Send
-                , disabled (not isConnected)
-                ]
-                [ text "Send" ]
+    Grid.container []
+        [ CDN.stylesheet
+        , Grid.row []
+            [ Grid.col []
+                [ text "TESTESTEST" ]
+            , Grid.col []
+                [ text "TES2" ]
             ]
-        , p []
-            [ b "url: "
-            , input
-                [ value model.url
-                , onInput UpdateUrl
-                , size 30
-                , disabled isConnected
+        , Grid.row []
+            [ Grid.col []
+                [ div [ class "input-group" ]
+                    [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
+                    , span [ class "input-group-btn" ]
+                        [ renderButton model ]
+                    ]
                 ]
-                []
-            , text " "
-            , if isConnected then
-                button [ onClick Close ]
-                    [ text "Close" ]
-
-              else
-                button [ onClick Connect ]
-                    [ text "Connect" ]
-            , br
-            , b "use simulator: "
-            , input
-                [ type_ "checkbox"
-                , onClick ToggleUseSimulator
-                , checked model.useSimulator
-                , disabled isConnected
-                ]
-                []
-            , br
-            , b "auto reopen: "
-            , input
-                [ type_ "checkbox"
-                , onClick ToggleAutoReopen
-                , checked <|
-                    WebSocket.willAutoReopen
-                        model.key
-                        model.state.websocket
-                ]
-                []
             ]
-        , p [] <|
-            List.concat
-                [ [ b "Log:"
-                  , br
-                  ]
-                , List.intersperse br (List.map text model.log)
-                ]
-        , div []
-            [ b "Instructions:"
-            , docp <|
-                "Fill in the 'url' and click 'Connect' to connect to a real server."
-                    ++ " This will only work if you've connected the port JavaScript code."
-            , docp "Fill in the text and click 'Send' to send a message."
-            , docp "Click 'Close' to close the connection."
-            , docp <|
-                "If the 'use simulator' checkbox is checked at startup,"
-                    ++ " then you're either runing from 'elm reactor' or"
-                    ++ " the JavaScript code got an error starting."
-            , docp <|
-                "Uncheck the 'auto reopen' checkbox to report when the"
-                    ++ " connection is lost unexpectedly, rather than the deault"
-                    ++ " of attempting to reconnect."
-            ]
-        , p []
-            [ b "Package: "
-            , a [ href "https://package.elm-lang.org/packages/billstclair/elm-websocket-client/latest" ]
-                [ text "billstclair/elm-websocket-client" ]
-            , br
-            , b "GitHub: "
-            , a [ href "https://github.com/billstclair/elm-websocket-client" ]
-                [ text "github.com/billstclair/elm-websocket-client" ]
-            ]
+        , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
         ]
