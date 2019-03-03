@@ -11,7 +11,7 @@ import Dict exposing (Dict)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Html exposing (label, fieldset, Html, a, button, div, h1, input, p, span, text)
-import Json.Decode exposing (succeed, list, field, Decoder, string, int, decodeString)
+import Json.Decode exposing (at, succeed, list, field, Decoder, string, int, decodeString)
 import Json.Encode exposing (Value)
 import PortFunnels exposing (FunnelDict, Handler(..), State)
 import PortFunnel.WebSocket as WebSocket exposing (Response(..))
@@ -85,6 +85,7 @@ defaultUrl =
 
 type alias Model =
     { send : String
+    , players: List String
     , log : List String
     , url : String
     , useSimulator : Bool
@@ -94,6 +95,7 @@ type alias Model =
     , gameState : ModelState
     , questions : List String
     , game : String
+    , answers : List (List String)
     , key : String
     , error : Maybe String
     , text : String
@@ -116,9 +118,11 @@ init { startTime } =
             { send = "{\"type\":\"register\", \"game_id\":3, \"content\":\"\"}"
             , log = []
             , url = defaultUrl
+            , players = []
             , useSimulator = False
             , game = "1234"
             , userID = startTime
+            , answers = []
             , selectedQuestion = ""
             , questions = []
             , gameState = Registering
@@ -128,10 +132,10 @@ init { startTime } =
             , error = Nothing
             , text = ""
             }
-        debug = Debug.log "ip" (defaultUrl ++"/"++ model.userID)
+        debug = Debug.log "url" (defaultUrl ++"/"++ model.game)
     in
-        { model | url = defaultUrl ++"/"++ model.userID } |> withCmd
-            (WebSocket.makeOpenWithKey model.key (defaultUrl ++"/"++ model.userID) |> send model)
+        { model | url = defaultUrl ++"/"++ model.game } |> withCmd
+            (WebSocket.makeOpenWithKey model.key (defaultUrl ++"/"++ model.game) |> send model)
 
 -- UPDATE
 
@@ -163,14 +167,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         TextChange str ->
-            let
-                boop = Debug.log "msg" str
-            in
-                { model | text = str } |> withNoCmd
+            { model | text = str } |> withNoCmd
+
         UpdateSend newsend ->
             { model | send = newsend } |> withNoCmd
---        UpdateSend gameID msgType content ->
---            { model | send = (toJsonString (String.split " " newsend)) } |> withNoCmd
 
         UpdateUrl url ->
             { model | url = url } |> withNoCmd
@@ -252,7 +252,7 @@ update msg model =
         StartGame ->
             model |> withCmd (WebSocket.makeSend model.key (toJsonString model.game "start" "") |> send model)
         SendQuestion q -> { model | gameState = WaitingForA, questions = [] } |> withCmd (sendMsg model "p_question" model.selectedQuestion)
-        SendAnswer   a -> { model | gameState = WaitingForA } |> withCmd (sendMsg model "answer" model.text)
+        SendAnswer   a -> { model | gameState = WaitingForA, text = "" } |> withCmd (sendMsg model "answer" model.text)
         SelectQuestion q -> { model | selectedQuestion = q } |> withNoCmd
 
 send : Model -> WebSocket.Message -> Cmd Msg
@@ -283,10 +283,30 @@ sendMsg model mtype content =
     in
         WebSocket.makeSend model.key out |> send model
 
+getMePls : String -> List String
+getMePls str = case decodeString (field "content" (list string)) str of
+    Ok xs -> xs
+    Err _ -> let debug = Debug.log "err_cause" str in []
+
 getMeQns : String -> List String
 getMeQns str = case decodeString (field "content" (list string)) str of
     Ok xs -> xs
     Err _ -> let debug = Debug.log "err_cause" str in []
+
+getMeAns : Model -> String -> List String
+getMeAns model str =
+    let
+        getAns s = case decodeString (at [ "content", s ] string) str of
+            Ok x -> x
+            Err _ -> "ERR"
+        db1 = Debug.log "username" model.userID
+        db2 = Debug.log "user's answer" (getAns model.userID)
+    in List.map getAns model.players
+
+getMeUID : String -> String
+getMeUID str = case decodeString (field "user_id" string) str of
+    Ok x -> x
+    Err _ -> "ERR"
 
 socketHandler : Response -> State -> Model -> ( Model, Cmd Msg )
 socketHandler response state mdl =
@@ -305,9 +325,9 @@ socketHandler response state mdl =
                 debug = Debug.log "in" message
                 (newModel, newState) = case msgType of
                     Ok "registered" -> (model, Registered)
-                    Ok "started"    -> (model, WaitingForQ)
+                    Ok "started"    -> ({ model | players = getMePls message, userID = getMeUID message }, WaitingForQ)
                     Ok "q_pick"     -> ({ model | questions = getMeQns message }, WriteQ)
-                    Ok "answer"     -> (model, WaitingForQ)
+                    Ok "answer"     -> ({ model | answers = (getMeAns model message)::model.answers }, WaitingForQ)
                     Ok "a_question" -> (model, WriteA)
                     Ok  x -> let d = Debug.log "hmm" x in (model, model.gameState)
                     Err _ -> Debug.todo "eee"
@@ -403,11 +423,20 @@ renderRadioButtons model =
         buttons = List.map rdoBtn model.questions
     in [ fieldset [] buttons ]
 
+renderAnswers : Model -> List (Html Msg)
+renderAnswers model =
+    let
+        item x = Grid.col [] [ text x ]
+        rows x = Grid.row [] (List.map item x)
+        debug_ = Debug.log "rows" (model.players)
+        debug  = Debug.log "rows" (model.answers)
+    in List.map rows (model.players::model.answers)
+
 view : Model -> Html Msg
 view model =
-    Grid.container []
-        [ CDN.stylesheet
-        , Grid.row []
+    Grid.container [] (
+        [ CDN.stylesheet ] ++ renderAnswers model ++
+        [ Grid.row []
             [ Grid.col []
                 [ text "TESTESTEST" ]
             , Grid.col []
@@ -423,4 +452,4 @@ view model =
                 ]
             ]
         , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
-        ]
+        ])

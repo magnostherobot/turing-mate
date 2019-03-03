@@ -39,7 +39,7 @@ class Game:
         self.players = []
         self.state = 'lobby'
         self.answers = {}
-        self.names = [ '1', '2', '3', 'b', 'c' ]
+        self.names = [ '1', '2', '3', 'b', 'c', 'tango', 'wowzer', 'bobbo', 'howdy' ]
 
     async def req_question(self):
         qmaster = random.choice(self.players)
@@ -50,7 +50,7 @@ class Game:
         if self.state == 'lobby':
             self.state = 'get_question'
             content = map(lambda p: p.id, self.players)
-            await send_all(self, 'started')
+            await send_all(self, 'started', list(content))
             # one random player chooses a question
             await self.req_question()
             return True
