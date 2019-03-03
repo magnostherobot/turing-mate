@@ -29,9 +29,7 @@ type alias JSONString = String
 
 toJsonString : GameID -> MsgType -> Content -> JSONString
 toJsonString gameid msgType content =
-    """
-    {"game_id":"{{ GAME_ID }}", "type":"{{ MSG_TYPE }}", "content":"{{ CONTENT }}"}
-    """
+    """ {"game_id":"{{ GAME_ID }}", "type":"{{ MSG_TYPE }}", "content":"{{ CONTENT }}"} """
     |> String.Format.namedValue "GAME_ID" gameid
     |> String.Format.namedValue "MSG_TYPE" msgType
     |> String.Format.namedValue "CONTENT" content
@@ -82,8 +80,8 @@ cmdPort =
 
 defaultUrl : String
 defaultUrl =
-    "ws://138.251.29.56:8765"
-
+    "ws://localhost:8765"
+    -- "ws://138.251.29.56:8765"
 
 type alias Model =
     { send : String
