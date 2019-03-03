@@ -17,7 +17,7 @@ infile.close()
 def get_question_selection():
     ret = []
     for i in range(0,3):
-        ret.append(random.choice(new_dict.keys()))
+        ret.append(random.choice(list(reddit_file.keys())))
     return ret
 
 class Player:
@@ -79,7 +79,10 @@ class Game:
         self.robot_man.id = self.get_name()
 
     async def req_question(self):
-        qmaster = random.choice(self.players)
+        lesser_list = self.players
+        if self.robot_man in lesser_list:
+            lesser_list.remove(self.robot_man)
+        qmaster = random.choice(lesser_list)
         questions = get_question_selection()
         await send_msg(qmaster, self, 'q_pick', questions)
 
@@ -123,7 +126,7 @@ class Game:
             self.state = 'ask_question'
             self.answers = { qmaster.id : question }
             await send_all_except(qmaster, self, 'a_question', question)
-            self.answers[self.robot_id] = reddit_file[question][0]
+            self.answers[self.robot_man.id] = reddit_file[question][0]
             return True
         else:
             return False
@@ -135,7 +138,7 @@ class Game:
 
             self.answers[player.id] = answer
 
-            if len(self.answers) == len(self.players):
+            if len(self.answers) == 1 + len(self.players):
                 self.state = 'get_question'
                 await send_all(self, 'answer', self.answers)
                 await self.req_question()
