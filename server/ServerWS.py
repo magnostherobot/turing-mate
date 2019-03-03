@@ -21,7 +21,7 @@ currently_active = {}
 
 async def main(websocket, pth):
     while True:
-        print("-------YEEET-------" + pth)
+        print("-------YEEET-------" + str(pth))
 
         try:
             dat = await websocket.recv()
@@ -92,6 +92,7 @@ async def main(websocket, pth):
                 if currently_active[path]['started'] == True :
                 # finish_round = False
                     number = get_number(path, websocket)
+                    # Funky stuff to add the answer to the right place for that round
                     currently_active[path]['answers'][currently_active[path]['round']][number] = data['content']
 
                     if len(currently_active[path]['answers'][currently_active[path]['round']]) == len(currently_active[path]['players']):
