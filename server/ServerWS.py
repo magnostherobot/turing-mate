@@ -217,7 +217,7 @@ async def guess(player, game, data):
         for p in game.players:
             await send_msg(p,game, "game_won", p.id)
         # end the game
-        game.remove(game)
+        games.remove(game)
     else:
         await send_msg(player, "game_over", "You're Out")
         await game.kick_player(player)
