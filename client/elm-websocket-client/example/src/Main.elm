@@ -85,6 +85,7 @@ defaultUrl =
 
 type alias Model =
     { send : String
+    , overlay : String
     , players: List String
     , log : List String
     , url : String
@@ -119,6 +120,7 @@ init { startTime } =
             , log = []
             , url = defaultUrl
             , players = []
+            , overlay = ""
             , useSimulator = False
             , game = "1234"
             , userID = startTime
@@ -162,6 +164,7 @@ type ModelState
         | WriteQ
         | WaitingForA
         | WriteA
+        | Finished
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -308,6 +311,11 @@ getMeUID str = case decodeString (field "user_id" string) str of
     Ok x -> x
     Err _ -> "ERR"
 
+getMeMsg : String -> String
+getMeMsg str = case decodeString (field "content" string) str of
+    Ok x -> x
+    Err _ -> "ERR"
+
 socketHandler : Response -> State -> Model -> ( Model, Cmd Msg )
 socketHandler response state mdl =
     let
@@ -329,6 +337,8 @@ socketHandler response state mdl =
                     Ok "q_pick"     -> ({ model | questions = getMeQns message }, WriteQ)
                     Ok "answer"     -> ({ model | answers = (getMeAns model message)::model.answers }, WaitingForQ)
                     Ok "a_question" -> (model, WriteA)
+                    Ok "game_won"   -> ({ model | overlay = getMeMsg message }, Finished)
+                    Ok "game_over"  -> ({ model | overlay = getMeMsg message }, Finished)
                     Ok  x -> let d = Debug.log "hmm" x in (model, model.gameState)
                     Err _ -> Debug.todo "eee"
             in { newModel | gameState = newState } |> withNoCmd
@@ -382,8 +392,6 @@ closedString code wasClean expected =
                 "NOT expected"
            )
 
-
-
 -- VIEW
 
 docp : String -> Html Msg
@@ -409,6 +417,7 @@ renderButton model =
         WriteQ      -> mkBtn ("Post Question", Just (SendQuestion model.selectedQuestion))
         WaitingForA -> mkBtn ("Waiting for answers...", Nothing)
         WriteA      -> mkBtn ("Post Answer", Just (SendAnswer model.text))
+        Finished    -> Debug.todo "HELP"
 
 renderRadioButtons : Model -> List (Html Msg)
 renderRadioButtons model =
@@ -433,23 +442,25 @@ renderAnswers model =
     in List.map rows (model.players::model.answers)
 
 view : Model -> Html Msg
-view model =
-    Grid.container [] (
-        [ CDN.stylesheet ] ++ renderAnswers model ++
-        [ Grid.row []
-            [ Grid.col []
-                [ text "TESTESTEST" ]
-            , Grid.col []
-                [ text "TES2" ]
-            ]
-        , Grid.row []
-            [ Grid.col []
-                [ div [ class "input-group" ]
-                    [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
-                    , span [ class "input-group-btn" ]
-                        [ renderButton model ]
+view model = case model.overlay of
+    "" ->
+        Grid.container [] (
+            [ CDN.stylesheet ] ++ renderAnswers model ++
+            [ Grid.row []
+                [ Grid.col []
+                    [ text "TESTESTEST" ]
+                , Grid.col []
+                    [ text "TES2" ]
+                ]
+            , Grid.row []
+                [ Grid.col []
+                    [ div [ class "input-group" ]
+                        [ input [ value model.text, onInput TextChange, type_ "text", class "form-control", id "input" ] []
+                        , span [ class "input-group-btn" ]
+                            [ renderButton model ]
+                        ]
                     ]
                 ]
-            ]
-        , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
-        ])
+            , Grid.row [] [ Grid.col [] (renderRadioButtons model) ]
+            ])
+    x -> text x

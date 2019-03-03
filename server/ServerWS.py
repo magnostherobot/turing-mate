@@ -6,6 +6,7 @@ import asyncio
 import websockets
 import json
 import random
+from random import shuffle
 from websockets.exceptions import ConnectionClosed
 
 import pickle
@@ -117,11 +118,10 @@ class Game:
                 self.players.remove(p)
                 self.return_name(p.id)
             elif p == player or p.id == player or p.sock == player:
-                await p.kick()
+                p.kick()
                 self.players.remove(p)
                 self.return_name(p.id)
                 break
-
 
     async def ask_question(self, qmaster, question):
         if self.state == 'get_question':
@@ -216,10 +216,10 @@ async def guess(player, game, data):
     if data['content'] == game.robot_man.id:
         # Correct guess
         for p in game.players:
-            await send_msg(p,game, "game_won", p.id)
+            await send_msg(p, game, "game_won", p.id)
         # end the game
     else:
-        await send_msg(player, "game_over", "You're Out")
+        await send_msg(player, game, "game_over", "You're Out")
         await game.kick_player(player)
 
 async def user_connect(websocket, game_id):
